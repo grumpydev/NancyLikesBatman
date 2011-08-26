@@ -1122,6 +1122,7 @@
     Request.prototype.data = '';
     Request.prototype.method = 'get';
     Request.prototype.response = null;
+    Request.prototype.contentType = 'application/json';
     Request.observeAll('url', function() {
       return this._autosendTimeout = setTimeout((__bind(function() {
         return this.send();
@@ -1598,7 +1599,7 @@
         }
       }
       result = this[action](params);
-      if (!this._actedDuringAction && result !== false) {
+      if (!this._actedDuringAction) {
         this.render();
       }
       if (filters = (_ref5 = this.constructor._batman) != null ? _ref5.afterFilters : void 0) {
@@ -1642,6 +1643,9 @@
         throw 'DoubleRenderError';
       }
       this._actedDuringAction = true;
+      if (options === false) {
+        return;
+      }
       if (!options.view) {
         options.source = helpers.underscore(this.constructor.name.replace('Controller', '')) + '/' + this._currentAction + '.html';
         options.view = new Batman.View(options);
@@ -2343,7 +2347,7 @@
           return;
         }
         return new Batman.Request($mixin(options, {
-          method: 'PUT',
+          method: 'POST',
           success: __bind(function(data) {
             record.fromJSON(this.transformRecordData(data));
             return callback(void 0, record);
@@ -2361,7 +2365,7 @@
           return;
         }
         return new Batman.Request($mixin(options, {
-          method: 'POST',
+          method: 'PUT',
           success: __bind(function(data) {
             record.fromJSON(this.transformRecordData(data));
             return callback(void 0, record);
@@ -3024,11 +3028,13 @@
         return (_ref2 = Batman.DOM.attrReaders).addclass.apply(_ref2, __slice.call(args).concat([true]));
       },
       foreach: function(node, iteratorName, key, context, parentRenderer) {
-        var nodeMap, observers, oldCollection, parent, prototype, sibling;
+        var fragment, nodeMap, numPendingChildren, observers, oldCollection, parent, prototype, sibling;
         prototype = node.cloneNode(true);
         prototype.removeAttribute("data-foreach-" + iteratorName);
         parent = node.parentNode;
         sibling = node.nextSibling;
+        fragment = document.createDocumentFragment();
+        numPendingChildren = 0;
         node.onParseExit = function() {
           return setTimeout((function() {
             return parent.removeChild(node);
@@ -3051,6 +3057,7 @@
           observers.add = function() {
             var item, items, iteratorContext, localClone, newNode, _j, _len2, _results;
             items = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+            numPendingChildren += items.length;
             _results = [];
             for (_j = 0, _len2 = items.length; _j < _len2; _j++) {
               item = items[_j];
@@ -3072,8 +3079,12 @@
                         before: sibling
                       });
                     } else {
-                      parent.insertBefore(newNode, sibling);
+                      fragment.appendChild(newNode);
                     }
+                  }
+                  if (--numPendingChildren === 0) {
+                    parent.insertBefore(fragment, sibling);
+                    fragment = document.createDocumentFragment();
                   }
                   parentRenderer.allow('ready');
                   parentRenderer.allow('rendered');
